@@ -7,6 +7,19 @@ const path = require('path')
 const loginRouter = require('./routes/login')
 const jwt = require('./modules/jwt')
 const authUtil = require('./middlewares/auth').checkToken
+const multer = require('multer');
+const fs = require('fs')
+const profile_img_dir = 'public/img/userProfile';
+
+let storage  = multer.diskStorage({ // 2
+  destination(req, file, cb) {
+    cb(null, 'public/img/userProfile/');
+  },
+  filename(req, file, cb) {
+    cb(null, `${req.body.nickname}_${file.originalname}`);
+  },
+});
+let upload = multer({ storage: storage });
 
 const con = mysql.createConnection({
   host: 'localhost',
@@ -16,20 +29,57 @@ const con = mysql.createConnection({
 });
 
 app.use(express.static('public'))
-
 // application/json
 app.use(express.json());
-
 // application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }))
-
 app.use('/login', loginRouter)
+
+//비밀번호변경전 확인
+app.post('/api/checkPassword',(req, res) =>{
+  const password = req.body.password;
+  console.log(req.body);
+  // console.log(req);
+
+  const sql ='select password from memberinfo where password=?';
+  con.query(sql, req.body.password, function (err, row, fields){
+    let checkPassword = false;
+    console.log(row);
+    if(row.length == 0){ //중복되는게 없으면
+      res.send({checkPassword: checkPassword});// 다시 checkid 객체를 클아이언트로 보낸다
+    }
+    else{
+      checkPassword = true; // 중복돼서 사용 불가
+      res.send({checkPassword: checkPassword});
+    }
+  })
+})
+//비밀번호 변경
+app.patch('/api/updatePassword',(req, res)=>{
+  const sql = 'update memberinfo set password=? where mail=?';
+  const parameterList = [req.body.password, req.body.mail]
+  accessDB_post(req, res, sql, parameterList);
+})
 
 // 0. 연결 확인 코드
 con.connect(function(err) {
   if (err) throw err;
   console.log('Connected');
 });
+
+app.post('/uploadFile', upload.single('recfile'), function(req,res){ // 7
+  console.log(req.body);
+  console.log(req.file);
+  res.send("-----")
+});
+
+app.put('/api/updateUserProfile', upload.single('profile_img'), (req, res) => {
+  const sql = 'update memberinfo set profile_img_path=? where nickname=?';
+  console.log(req.body);
+  console.log(req.file);
+  console.log(req.file.filename);
+  accessDB_put(req, res, sql, [req.file.filename, req.body.nickname])
+})
 
 app.get('/', (req, res) => res.send('Hellosdfsd'))
 
@@ -60,24 +110,23 @@ app.post('/api/join', (req, res) => {
   accessDB_post(req, res, sql, parameterList)
 })
 
-// 2. 아이디 중복 검사
-app.post('/api/checkid', (req, res) =>{
+//id 중복검사
+app.post('/api/checkid',(req, res) =>{
   const mail = req.body.mail;
-  // console.log(req.body);
   console.log(req.body);
-  console.log(req.params);
-  console.log(req.headers);
-  console.log(req.query);
+  // console.log(req);
 
-  const sql ='select mail from memberinfo where mail=?'
+  const sql ='select mail from memberinfo where mail=?';
   con.query(sql, req.body.mail, function (err, row, fields){
-    let checkid = false;
-    if(row === undefined){ //중복되는게 없으면
-      checkid =true;// 사용가능
+    let checkid;
+    checkid=false;
+    console.log(row);
+    if(row.length == 0){ //중복되는게 없으면
+      checkid = true;// 사용가능
       res.send({checkid: checkid});// 다시 checkid 객체를 클아이언트로 보낸다
     }
     else{
-      checkid=false; // 중복되서 사용 불가
+      checkid=false; // 중복돼서 사용 불가
       res.send({checkid: checkid});
     }
   })
@@ -233,12 +282,31 @@ function accessDB_post(req, res, sql, parameterList) {
   });
 }
 
+function accessDB_put(req, res, sql, parameterList) {
+  con.query(sql, parameterList, async function (err, result, fields) {
+    if (err) {
+      console.log(err);
+    } else if(result == undefined) {
+      res.send("failure")
+    } else {
+      console.log(result);
+      res.send("success")
+    }
+  });
+}
+
 //라우터에서 설정되어 있지 않은 주소로 접속하려 할때
 app.all('*', (req, res) => {
   res.status(404).send('PAGE NOT FOUND');
 });
 
-app.listen(port, () => console.log('Example prot: ${port}'))
+app.listen(port, () => {
+  
+  if (!fs.existsSync(profile_img_dir)) fs.mkdirSync(profile_img_dir);
+  else console.log("--------------");
+
+  console.log('Example prot: ${port}')
+})
 
 // con.query(sql, [req.body.mail, req.body.password, req.body.name,  req.body.introduction,
 //    req.body.phonenumber, req.body.sex, req.body.nickname,  profile_img_path], function (err, result, fields) {
