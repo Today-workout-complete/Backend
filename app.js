@@ -9,17 +9,41 @@ const jwt = require('./modules/jwt')
 const authUtil = require('./middlewares/auth').checkToken
 const multer = require('multer');
 const fs = require('fs')
-const profile_img_dir = 'public/img/userProfile';
+const IMG_DIR = 'public/img';
+const PROFILE_IMG_DIR = 'public/img/userProfile';
+const POST_IMG_DIR = 'public/img/postPhoto';
 
 let storage  = multer.diskStorage({ // 2
   destination(req, file, cb) {
-    cb(null, 'public/img/userProfile/');
+    if(req.body.title==undefined){
+      console.log("USER PROFILE IMG SAVE");
+      cb(null, PROFILE_IMG_DIR+'/');
+    } else {
+      console.log("POST IMG SAVE");
+      cb(null, POST_IMG_DIR+'/');
+    }
   },
   filename(req, file, cb) {
-    cb(null, `${req.body.nickname}_${file.originalname}`);
+    if(req.body.title==undefined){
+      console.log("USER PROFILE IMG FILENAME");
+      cb(null, `${req.body.mail}_${file.originalname}`);
+    } else {
+      console.log("POST IMG FILENAME");
+      
+      cb(null, `${req.body.nickname}_${new Date().toLocaleString}_${file.originalname}`);
+    }
   },
 });
+
 let upload = multer({ storage: storage });
+
+async function clean(file){
+  fs.unlink(file, function(err){
+    if(err) {
+      console.log("Error : ", err)
+    }
+  })
+}
 
 const con = mysql.createConnection({
   host: 'localhost',
@@ -71,6 +95,23 @@ app.post('/uploadFile', upload.single('recfile'), function(req,res){ // 7
   console.log(req.body);
   console.log(req.file);
   res.send("-----")
+});
+
+// 유저 정보 변경(이메일, 이름, 자기소개, 이미지)
+app.patch('/api/updateMyInfo', upload.single('profileImage'), function(req,res){ 
+  const sql = 'update memberinfo set uesr_name = ?, introduction = ?, profile_img_path = ?  where mail = ?';
+  console.log(req.body);
+  console.log(req.file);
+
+  let newFileName = req.file.filename
+  if(newFileName==undefined)
+    newFileName = req.body.profile_img_path
+  
+  // 기존 이미지 파일 삭제 코드
+  console.log(PROFILE_IMG_DIR+'/' + req.body.profile_img_path);
+  clean(PROFILE_IMG_DIR + '/' + req.body.profile_img_path);
+
+  accessDB_patch(req, res, sql, [req.body.name, req.body.introduction, newFileName, req.body.mail])
 });
 
 app.put('/api/updateUserProfile', upload.single('profile_img'), (req, res) => {
@@ -162,10 +203,19 @@ app.get('/api/getBoard', (req, res) => {
 })
 
 // 5. 게시글 생성
-app.post('/api/createPost', (req, res)=>{
+app.post('/api/createPost', upload.single('photographic_path'), (req, res)=>{
 
   const sql = "INSERT INTO post VALUES (NULL, ?, ?,?,?,?,?,DEFAULT,NULL,NULL, DEFAULT, DEFAULT,?,DEFAULT)"
-  const parameterList =[req.body.board_id, req.body.nickname, req.body.title, req.body.content, req.ip, req.body.photographic_path,req.body.availability_comments ];
+
+  console.log(req.body);
+  console.log(req.file);
+  
+  let newFileName = req.file.filename
+
+  if(newFileName==undefined)
+    console.log("사진 없음!");
+
+  const parameterList =[req.body.board_id, req.body.nickname, req.body.title, req.body.content, req.ip, newFileName,req.body.availability_comments ];
 
   console.log(req.body);
   accessDB_post(req, res, sql, parameterList)
@@ -295,6 +345,19 @@ function accessDB_put(req, res, sql, parameterList) {
   });
 }
 
+function accessDB_patch(req, res, sql, parameterList) {
+  con.query(sql, parameterList, async function (err, result, fields) {
+    if (err) {
+      console.log(err);
+    } else if(result == undefined) {
+      res.send("failure")
+    } else {
+      console.log(result);
+      res.send({profile_img_path: req.file.filename})
+    }
+  });
+}
+
 //라우터에서 설정되어 있지 않은 주소로 접속하려 할때
 app.all('*', (req, res) => {
   res.status(404).send('PAGE NOT FOUND');
@@ -302,15 +365,17 @@ app.all('*', (req, res) => {
 
 app.listen(port, () => {
   
-  if (!fs.existsSync(profile_img_dir)) fs.mkdirSync(profile_img_dir);
+  // public/img 폴더 없으면 생성
+  if (!fs.existsSync(IMG_DIR)) fs.mkdirSync(IMG_DIR);
+  else console.log("--------------");
+
+  // public/img/userProfile 폴더 없으면 생성
+  if (!fs.existsSync(PROFILE_IMG_DIR)) fs.mkdirSync(PROFILE_IMG_DIR);
+  else console.log("--------------");
+
+  // public/img/postPhoto 폴더 없으면 생성
+  if (!fs.existsSync(POST_IMG_DIR)) fs.mkdirSync(POST_IMG_DIR);
   else console.log("--------------");
 
   console.log('Example prot: ${port}')
 })
-
-// con.query(sql, [req.body.mail, req.body.password, req.body.name,  req.body.introduction,
-//    req.body.phonenumber, req.body.sex, req.body.nickname,  profile_img_path], function (err, result, fields) {
-//   if (err) throw err;
-//   console.log(result);
-//   res.send(result)
-// });
