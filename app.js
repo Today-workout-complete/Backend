@@ -4,7 +4,12 @@ const port = 3000
 const mysql = require('mysql')
 const path = require('path')
 // const bodyParser = require('body-parser')
+
+// 라우터 설정
 const loginRouter = require('./routes/login')
+const communityRouter = require('./routes/community')
+const myPageRouter = require('./routes/myPage')
+
 const jwt = require('./modules/jwt')
 const authUtil = require('./middlewares/auth').checkToken
 const multer = require('multer');
@@ -57,7 +62,10 @@ app.use(express.static('public'))
 app.use(express.json());
 // application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }))
-app.use('/login', loginRouter)
+
+app.use('/api/login', loginRouter)
+app.use('/api/community', communityRouter)
+app.use('/api/myPage', myPageRouter)
 
 //비밀번호변경전 확인
 app.post('/api/checkPassword',(req, res) =>{
@@ -122,8 +130,6 @@ app.put('/api/updateUserProfile', upload.single('profile_img'), (req, res) => {
   accessDB_put(req, res, sql, [req.file.filename, req.body.nickname])
 })
 
-app.get('/', (req, res) => res.send('Hellosdfsd'))
-
 app.get('/api/board', (req, res) => {
   const sql = "SELECT * FROM board"
   console.log(req.ip);
@@ -136,53 +142,7 @@ app.get('/api/board', (req, res) => {
   accessDB_get(res, sql, [])
 });
 
-// 1. 회원가입
-app.post('/api/join', (req, res) => {
 
-  // 프로필 이미지 저장 및 경로 빼오기
-  const profile_img_path = 'default'
-
-  const sql = "INSERT INTO memberinfo VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, '1', default, default, null, null, 1, 1)"
-  const parameterList = [req.body.mail, req.body.password, req.body.name,  req.body.introduction,
-    req.body.phonenumber, req.body.address, req.body.sex, req.body.nickname,  profile_img_path]
-
-  console.log(req.body);
-
-  accessDB_post(req, res, sql, parameterList)
-})
-
-//id 중복검사
-app.post('/api/checkid',(req, res) =>{
-  const mail = req.body.mail;
-  console.log(req.body);
-  // console.log(req);
-
-  const sql ='select mail from memberinfo where mail=?';
-  con.query(sql, req.body.mail, function (err, row, fields){
-    let checkid;
-    checkid=false;
-    console.log(row);
-    if(row.length == 0){ //중복되는게 없으면
-      checkid = true;// 사용가능
-      res.send({checkid: checkid});// 다시 checkid 객체를 클아이언트로 보낸다
-    }
-    else{
-      checkid=false; // 중복돼서 사용 불가
-      res.send({checkid: checkid});
-    }
-  })
-})
-
-// 3. 로그인
-app.post('/api/login', (req, res) => {
-  console.log('login---------');
-
-  const sql = "SELECT * FROM memberinfo WHERE mail = ? AND password = ?"
-  const parameterList = [req.body.mail, req.body.password]
-  console.log(req.body);
-
-  accessDB_post(req, res, sql, parameterList)
-})
 
 // 4. 게시판 생성 authUtil
 app.post('/api/createBoard', (req, res) => {
@@ -272,6 +232,63 @@ app.get('/api/searchTitle',(req,res)=>{
   });
 })
 
+// 전체 게시글 가져오기
+app.get('/api/getPostAll',(req, res)=>{
+
+  const sql = "SELECT * FROM post where limit ?,?"
+  const parameterList =[parseInt(req.query.limit),parseInt(req.query.limit)+9]
+  console.log(req.query);
+  console.log(parameterList);
+
+  console.log(req.path);
+  accessDB_get(req, res, sql, parameterList)
+
+})
+
+
+//mypage 자기가 쓴 게시글 전부 가져오기
+app.get('/api/myPagePost',(req,res)=>{
+  const sql ='select * from post where nickname =? limit ?,?'
+  const parameterList=[req.query.nickname,parseInt(req.query.limit),parseInt(req.query.limit)+9]
+  accessDB_get(req, res, sql, parameterList)
+})
+
+
+//nickname 중복검사
+app.post('/api/checkNickname',(req, res) =>{
+  const nickname = req.body.nickname;
+  console.log(req.body);
+  // console.log(req);
+
+  const sql ='select nickname from memberinfo where nickname=?';
+  con.query(sql, req.body.mail, function (err, row, fields){
+    let checkNickname;
+    checkNickname=false;
+    console.log(row);
+    if(row.length == 0){ //중복되는게 없으면
+      checkNickname = true;// 사용가능
+      res.send({checkNickname: checkNickname});// 다시 checkid 객체를 클아이언트로 보낸다
+    }
+    else{
+      checkNickname=false; // 중복돼서 사용 불가
+      res.send({checkNickname: checkNickname});
+    }
+  })
+})
+
+//게시글 삭제
+app.delete('/api/deletePost', (req,res)=>{
+  const sql = 'delete from post where nickname=? and title= ?'
+  const parameterList=[req.body.nickname, req.body.title]
+  accessDB_post(req, res, sql, parameterList);
+})
+
+//유저정보삭제
+app.delete('/api/deleteUserInfo', (req,res)=>{
+  const sql = 'delete from memberinfo where mail= ?'
+  const parameterList=[req.body.mail]
+  accessDB_post(req, res, sql, parameterList);
+})
 
 // GET 방식 DB 접근 함수
 function accessDB_get(req, res, sql, parameterList) {
