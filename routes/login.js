@@ -2,6 +2,15 @@ const express = require('express');
 const path = require('path');
 
 const router = express.Router();
+const jwt = require('../modules/jwt');
+
+const mysql = require('mysql')
+const con = mysql.createConnection({
+  host: 'localhost',
+  user: 'workout',
+  password: '1234',
+  database: 'Today_workout_complete',
+});
 
 // GET /user 라우터
 router.get('/', (req, res, next) => {
@@ -61,7 +70,7 @@ function accessDB_post(req, res, sql, parameterList) {
     con.query(sql, parameterList, async function (err, result, fields) {
       if (err) {
         console.log(err);
-      } else if(result == undefined) {
+      } else if(result == undefined || result.length == 0) {
         res.send("failure")
       } else {
   
@@ -69,12 +78,12 @@ function accessDB_post(req, res, sql, parameterList) {
         console.log(result, req.path);
   
         switch (req.path){
-          case '/api/join':
+          case '/join':
             console.log('join');
             const joinJwtToken = await jwt.sign(req.body.mail)
             res.send({token: joinJwtToken.token})
             break
-          case '/api/login':
+          case '/login':
             console.log('login');
             const loginJwtToken = await jwt.sign(req.body.mail)
             res.send({token: loginJwtToken.token, result: result})
