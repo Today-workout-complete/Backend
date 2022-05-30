@@ -18,7 +18,6 @@ const IMG_DIR = 'public/img';
 const PROFILE_IMG_DIR = 'public/img/userProfile';
 const POST_IMG_DIR = 'public/img/postPhoto';
 
-
 const con = mysql.createConnection({
   host: 'localhost',
   user: 'workout',

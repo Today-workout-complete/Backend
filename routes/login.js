@@ -64,6 +64,52 @@ router.post('/login', (req, res) => {
     accessDB_post(req, res, sql, parameterList)
 })
 
+//아이디 찾기
+router.get('/findId', (req, res) =>{
+  const sql = 'select mail from memberinfo where uesr_name = ? and phonenumber = ?'
+  const parameterList=[req.query.uesr_name, req.query.phonenumber]
+  accessDB_get(req, res, sql, parameterList);
+})
+
+
+// 비밀번호 찾기
+router.get('/findPassword', (req,res) => {
+  const sql = 'select password from memberinfo where mail = ? and uesr_name = ? and phonenumber = ?'
+  const parameterList=[req.query.mail,req.query.uesr_name, req.query.phonenumber]
+  accessDB_get(req, res, sql, parameterList);
+})
+
+// GET 방식 DB 접근 함수
+function accessDB_get(req, res, sql, parameterList) {
+  
+  con.query(sql, parameterList, function (err, result, fields) {
+    if (err) {
+      console.log(err);
+      res.send("failure")
+    } else if(result == undefined || result.length == 0) {
+      res.send("failure")
+    } else {
+      console.log("쿼리 결과");
+      console.log(result, req.path);
+      switch (req.path){
+          case '/getPost':
+              console.log('getPost');
+              res.send(result);
+              break;
+          case '/getPostAll':
+              console.log('getPostAll');
+              res.send(result);
+              break;
+          default:
+              // result = "success"
+              res.send(result)
+              break;
+      }
+    }
+  });
+}
+
+
 // POST 방식 DB 접근 함수
 function accessDB_post(req, res, sql, parameterList) {
   
