@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const multer = require('multer');
 const router = express.Router();
-
+const fs = require('fs')
 const mysql = require('mysql')
 const con = mysql.createConnection({
   host: 'localhost',
@@ -71,19 +71,28 @@ router.patch('/updatePassword',(req, res)=>{
 
 // 유저 정보 변경(이메일, 이름, 자기소개, 이미지)
 router.patch('/updateMyInfo', upload.single('profileImage'), function(req,res){ 
-    const sql = 'update memberinfo set uesr_name = ?, introduction = ?, profile_img_path = ?  where mail = ?';
+    const sql = 'update memberinfo set nickname = ?, introduction = ?, profile_img_path = ?  where mail = ?';
     console.log(req.body);
     console.log(req.file);
-
-    let newFileName = req.file.filename
+    let defaultProfile='default.png'
+    console.log("bbbbbbb");
+    if(req.file!=undefined){
+        newFileName = req.file.filename
+    }else{
+        newFileName=defaultProfile
+    }
+    console.log("aaaaaaaa");
     if(newFileName==undefined)
         newFileName = req.body.profile_img_path
 
     // 기존 이미지 파일 삭제 코드
     console.log(PROFILE_IMG_DIR+'/' + req.body.profile_img_path);
-    clean(PROFILE_IMG_DIR + '/' + req.body.profile_img_path);
-
-    accessDB_patch(req, res, sql, [req.body.name, req.body.introduction, newFileName, req.body.mail])
+    if(req.body.profile_img_path != undefined){
+        newFileName=defaultProfile;
+        clean(PROFILE_IMG_DIR + '/' + req.body.profile_img_path);
+        
+    }
+    accessDB_patch(req, res, sql, [req.body.nickname, req.body.introduction, newFileName, req.body.mail])
 });
 
 // 사용자 사진 수정
@@ -146,6 +155,37 @@ function accessDB_put(req, res, sql, parameterList) {
     }); 
 }
 
+
+// GET 방식 DB 접근 함수
+function accessDB_get(req, res, sql, parameterList) {
+  
+    con.query(sql, parameterList, function (err, result, fields) {
+      if (err) {
+        console.log(err);
+        res.send("failure")
+      } else if(result == undefined || result.length == 0) {
+        res.send("failure")
+      } else {
+        console.log("쿼리 결과");
+        console.log(result, req.path);
+        switch (req.path){
+            case '/getPost':
+                console.log('getPost');
+                res.send(result);
+                break;
+            case '/getPostAll':
+                console.log('getPostAll');
+                res.send(result);
+                break;
+            default:
+                // result = "success"
+                res.send(result)
+                break;
+        }
+      }
+    });
+}
+
 function accessDB_patch(req, res, sql, parameterList) {
     con.query(sql, parameterList, async function (err, result, fields) {
         if (err) {
@@ -154,7 +194,11 @@ function accessDB_patch(req, res, sql, parameterList) {
             res.send("failure")
         } else {
             console.log(result);
-            res.send({profile_img_path: req.file.filename})
+            if(req.file!=undefined){
+                res.send({profile_img_path: req.file.filename})
+            }else{
+                res.send({profile_img_path: 'default.png'})
+            }
         }
     });
 }
