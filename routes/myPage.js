@@ -2,8 +2,10 @@ const express = require('express');
 const path = require('path');
 const multer = require('multer');
 const router = express.Router();
+const fs = require('fs');
 
-const mysql = require('mysql')
+const mysql = require('mysql');
+const { log } = require('console');
 const con = mysql.createConnection({
   host: 'localhost',
   user: 'workout',
@@ -11,7 +13,8 @@ const con = mysql.createConnection({
   database: 'Today_workout_complete',
 });
 
-const PROFILE_IMG_DIR = 'public/img/userProfile';
+const PROFILE_IMG_DIR = '../public/img/userProfile';
+const EMG_DATA_DIR = 'public/emgData';
 
 let storage  = multer.diskStorage({
     destination(req, file, cb) {
@@ -26,7 +29,40 @@ let storage  = multer.diskStorage({
   
 let upload = multer({ storage: storage });
 
+// EMG DATA 저장
+router.post('/emgData', (req, res) => {
+    console.log(req.body);
+    const emgData = JSON.stringify(req.body)
+    const emgDataFile = `${req.body.nickname}_${req.body.starting_time}.json`
 
+    fs.writeFileSync(`${EMG_DATA_DIR}/${emgDataFile}`, emgData)
+    
+    // DB 저장
+    const sql = "INSERT INTO sensordata VALUES (?,DEFAULT, ?)"
+    const parameterList = [req.body.nickname, emgDataFile]
+
+    con.query(sql, parameterList, function (err, row, fields){
+      let checkNickname;
+      checkNickname=false;
+      console.log(row);
+      if(err){
+        console.log(err);
+        res.send("faile")
+      } else{
+        console.log(row);
+        res.send("success")
+      }
+    })
+});
+
+//센서데이터
+router.get('/sensorData',(req,res)=>{
+    console.log('sensorData: ', req.params.nickname);
+    const sql = "select emg_data_path from SensorData where nickname =?"
+    const parameterList=[req.params.nickname]
+    accessDB_get(req, res, sql, parameterList)
+    
+})
 
 async function clean(file){
     fs.unlink(file, function(err){
@@ -132,6 +168,32 @@ router.delete('/deleteUserInfo', (req,res)=>{
     const parameterList=[req.body.mail]
     accessDB_post(req, res, sql, parameterList);
 })
+
+// GET 방식 DB 접근 함수
+function accessDB_get(req, res, sql, parameterList) {
+  
+    con.query(sql, parameterList, function (err, result, fields) {
+      if (err) {
+        console.log(err);
+        res.send("failure")
+      } else if(result == undefined || result.length == 0) {
+        res.send("failure")
+      } else {
+        console.log("쿼리 결과");
+        console.log(result, req.path);
+        switch (req.path){
+            case '/sensorData':
+                console.log('sensorData');
+                res.send(result);
+                break;
+            default:
+                result = "success"
+                res.send(result)
+                break;
+        }
+      }
+    });
+}
 
 function accessDB_put(req, res, sql, parameterList) {
     con.query(sql, parameterList, async function (err, result, fields) {

@@ -17,6 +17,7 @@ const fs = require('fs')
 const IMG_DIR = 'public/img';
 const PROFILE_IMG_DIR = 'public/img/userProfile';
 const POST_IMG_DIR = 'public/img/postPhoto';
+const EMG_DATA_DIR = 'public/emgData';
 
 
 const con = mysql.createConnection({
@@ -42,6 +43,8 @@ con.connect(function(err) {
   console.log('Connected');
 });
 
+
+
 //라우터에서 설정되어 있지 않은 주소로 접속하려 할때
 app.all('*', (req, res) => {
   res.status(404).send('PAGE NOT FOUND');
@@ -51,16 +54,16 @@ app.listen(port, () => {
   
   // public/img 폴더 없으면 생성
   if (!fs.existsSync(IMG_DIR)) fs.mkdirSync(IMG_DIR);
-  else console.log("--------------");
 
   // public/img/userProfile 폴더 없으면 생성
   if (!fs.existsSync(PROFILE_IMG_DIR)) fs.mkdirSync(PROFILE_IMG_DIR);
-  else console.log("--------------");
 
   // public/img/postPhoto 폴더 없으면 생성
   if (!fs.existsSync(POST_IMG_DIR)) fs.mkdirSync(POST_IMG_DIR);
-  else console.log("--------------");
 
+  // public/emgData 폴더 없으면 생성
+  if (!fs.existsSync(EMG_DATA_DIR)) fs.mkdirSync(EMG_DATA_DIR);
+  
   console.log('Example prot: ${port}')
 })
 
