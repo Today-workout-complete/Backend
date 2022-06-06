@@ -19,7 +19,6 @@ const PROFILE_IMG_DIR = 'public/img/userProfile';
 const POST_IMG_DIR = 'public/img/postPhoto';
 const EMG_DATA_DIR = 'public/emgData';
 
-
 const con = mysql.createConnection({
   host: 'localhost',
   user: 'workout',
